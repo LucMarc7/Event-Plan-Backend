@@ -15,7 +15,6 @@ const initSettings = async () => {
       defaults: def 
     });
   }
-  console.log('✅ Paramètres initialisés');
 };
 
 module.exports = initSettings;

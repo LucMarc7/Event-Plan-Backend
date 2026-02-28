@@ -102,7 +102,6 @@ exports.initiatePayment = async (req, res) => {
 // Webhook de notification
 exports.paymentWebhook = async (req, res) => {
   const callbackData = req.body;
-  console.log('Webhook reçu:', JSON.stringify(callbackData, null, 2));
 
   try {
     if (!callbackData.payment || callbackData.payment.status !== 'success') {

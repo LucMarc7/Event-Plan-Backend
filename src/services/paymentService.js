@@ -15,7 +15,6 @@ class PaymentService {
 
   async getToken() {
     if (this.simulate) {
-      console.log('⚠️ Mode simulation: token factice utilisé');
       return 'simulated_token_123';
     }
     try {
@@ -39,7 +38,6 @@ class PaymentService {
 
   async initiatePayment({ clientPhone, amount, currency, telecom }) {
     if (this.simulate) {
-      console.log(`⚠️ Mode simulation: paiement initié pour ${amount} ${currency} via ${telecom} (${clientPhone})`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       return {
         status: 102,

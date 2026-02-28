@@ -30,15 +30,13 @@ app.use('/api/', limiter);
 
 // Connexion DB
 sequelize.authenticate()
-  .then(() => console.log('✅ Database connected'))
-  .catch(err => console.error('❌ DB connection error:', err));
+  .then(() => {})
+  .catch(err => {});
 
 // Synchronisation des modèles (dev uniquement) + initialisation des paramètres
 if (process.env.NODE_ENV !== 'production') {
   syncDb.sync({ alter: true })
     .then(async () => {
-      console.log('✅ Database synced');
-      // Initialisation des paramètres par défaut
       const { Setting } = require('./models');
       const defaults = [
         { key: 'site_name', value: 'Event Plan', type: 'string' },
@@ -49,11 +47,9 @@ if (process.env.NODE_ENV !== 'production') {
       for (const def of defaults) {
         await Setting.findOrCreate({ where: { key: def.key }, defaults: def });
       }
-      console.log('✅ Paramètres par défaut initialisés');
     })
-    .catch(err => console.error('❌ Sync error:', err));
+    .catch(err => {});
 } else {
-  // En production, on peut aussi initialiser les paramètres (la table doit exister)
   const { Setting } = require('./models');
   const defaults = [
     { key: 'site_name', value: 'Event Plan', type: 'string' },
@@ -63,7 +59,7 @@ if (process.env.NODE_ENV !== 'production') {
   ];
   defaults.forEach(def => {
     Setting.findOrCreate({ where: { key: def.key }, defaults: def })
-      .catch(err => console.error('❌ Init settings error:', err));
+      .catch(err => {});
   });
 }
 
@@ -74,6 +70,7 @@ app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/comments', require('./routes/commentRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
 
 // --- Ajout pour servir l'application d'administration (SPA) ---
 app.use('/admin', express.static(path.join(__dirname, '../admin/dist')));
@@ -87,9 +84,4 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-app.use('/api/profile', require('./routes/profileRoutes'));
-app.use('/api/users', require('./routes/userRoutes'));
+app.listen(PORT, () => {});
