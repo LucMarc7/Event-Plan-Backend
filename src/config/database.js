@@ -4,14 +4,14 @@ require('dotenv').config();
 let sequelize;
 
 if (process.env.DATABASE_URL) {
-  // Utilisation en production (Render)
+  // En production (Render), on utilise l'URL de connexion
   sequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: 'postgres',
     logging: false,
     dialectOptions: {
       ssl: {
         require: true,
-        rejectUnauthorized: false
+        rejectUnauthorized: false // Nécessaire pour Render
       }
     },
     pool: {
@@ -22,7 +22,7 @@ if (process.env.DATABASE_URL) {
     }
   });
 } else {
-  // Utilisation en local (variables individuelles)
+  // En développement local, on utilise les variables individuelles
   sequelize = new Sequelize(
     process.env.DB_NAME,
     process.env.DB_USER,
