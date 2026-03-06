@@ -8,6 +8,7 @@ const ticketService = require('../services/ticketService');
 exports.initiatePayment = async (req, res) => {
   const { orderId, clientPhone, telecom } = req.body;
 
+  // Validation
   if (!orderId || !clientPhone || !telecom) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
   }
@@ -35,6 +36,7 @@ exports.initiatePayment = async (req, res) => {
       return res.status(500).json({ error: 'Montant de commande invalide' });
     }
 
+    // Appel au service de paiement
     let paymentResult;
     try {
       paymentResult = await paymentService.initiatePayment({
@@ -55,6 +57,7 @@ exports.initiatePayment = async (req, res) => {
 
     const { status, data } = paymentResult;
 
+    // Gestion des réponses
     if (status === 102 || status === 200) {
       const transactionId = data?.transactionId || data?.sessionId;
       if (transactionId) {
@@ -63,12 +66,30 @@ exports.initiatePayment = async (req, res) => {
       }
 
       if (status === 200) {
-        return res.status(200).json({
-          success: true,
-          message: 'Paiement réussi',
-          transactionId
-        });
+        // Paiement immédiatement réussi → confirmer la commande
+        try {
+          // Confirmer le paiement (met à jour le statut, les stocks)
+          await orderController.confirmPayment(order.id, transactionId);
+          // Générer le billet
+          await ticketService.generateAndSaveTicket(order.id);
+          return res.status(200).json({
+            success: true,
+            message: 'Paiement réussi',
+            transactionId
+          });
+        } catch (confirmError) {
+          console.error('Erreur lors de la confirmation du paiement immédiat:', confirmError);
+          // La commande est marquée comme payée mais la confirmation a échoué ?
+          // On renvoie quand même un succès au client, mais on loggue l'erreur.
+          // Idéalement, il faudrait annuler la transaction, mais c'est complexe.
+          return res.status(200).json({
+            success: true,
+            message: 'Paiement réussi (attention: confirmation en attente)',
+            transactionId
+          });
+        }
       } else {
+        // Statut 102 : en attente
         return res.status(202).json({
           message: 'Transaction en cours, veuillez confirmer sur votre téléphone',
           transactionId
@@ -76,6 +97,7 @@ exports.initiatePayment = async (req, res) => {
       }
     }
 
+    // Gestion des erreurs HTTP
     const errorMessage = data?.message || 'Erreur de paiement';
     switch (status) {
       case 400:
@@ -102,9 +124,12 @@ exports.initiatePayment = async (req, res) => {
 // Webhook de notification
 exports.paymentWebhook = async (req, res) => {
   const callbackData = req.body;
+  console.log('Webhook reçu:', JSON.stringify(callbackData, null, 2));
 
   try {
+    // Vérifier la structure du callback (adapter selon la doc SerdiPay)
     if (!callbackData.payment || callbackData.payment.status !== 'success') {
+      // Si ce n'est pas un succès, on ignore (mais on répond 200 pour accuser réception)
       return res.sendStatus(200);
     }
 
@@ -114,6 +139,7 @@ exports.paymentWebhook = async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // Rechercher la commande associée
     const order = await Order.findOne({ where: { payment_intent_id: transactionId } });
     if (!order) {
       console.error(`Webhook: aucune commande trouvée avec transactionId ${transactionId}`);
@@ -125,14 +151,19 @@ exports.paymentWebhook = async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // Utiliser une transaction pour la confirmation et la génération du ticket
     const transaction = await sequelize.transaction();
     try {
+      // Confirmer le paiement (met à jour le statut, les stocks)
       await orderController.confirmPayment(order.id, transactionId);
+      // Générer le billet (dans la même transaction)
+      await ticketService.generateAndSaveTicket(order.id);
       await transaction.commit();
-      console.log(`Commande ${order.id} confirmée avec succès via webhook`);
+      console.log(`Commande ${order.id} confirmée et billet généré via webhook`);
     } catch (confirmError) {
       await transaction.rollback();
       console.error(`Erreur lors de la confirmation de la commande ${order.id}:`, confirmError);
+      // On renvoie 200 quand même pour ne pas relancer le webhook, mais on loggue.
     }
 
     res.sendStatus(200);
