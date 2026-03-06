@@ -51,10 +51,10 @@ async function syncAndInit() {
       await syncDb.sync({ alter: true });
       console.log('✅ Database synced (development)');
     } else {
-      // En production, on évite de modifier les tables automatiquement
-      // On peut éventuellement utiliser sync() sans options pour créer les tables manquantes
-      // await syncDb.sync();
-      console.log('Production mode: skipping automatic sync (use migrations instead)');
+      // En production, pour le premier déploiement, on crée les tables si elles n'existent pas
+      // sans modifier la structure (alter: false). Après la première exécution, on peut commenter cette ligne.
+      await syncDb.sync(); // crée les tables si elles n'existent pas
+      console.log('✅ Database synced (production - tables créées si nécessaire)');
     }
 
     // Initialisation des paramètres par défaut (dans tous les cas)
