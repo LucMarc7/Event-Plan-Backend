@@ -8,15 +8,22 @@ const path = require('path');
 // CRÉER UN ÉVÉNEMENT (avec upload d'image)
 // ============================================
 exports.createEvent = async (req, res) => {
+  console.log('--- createEvent ---');
+  console.log('req.user:', req.user?.id, req.user?.role);
+  console.log('req.body:', req.body);
+  console.log('req.file:', req.file);
+
   const { title, description, date, location, total_access, categories } = req.body;
   const imageFile = req.file;
 
   if (!title || !date || !total_access || !categories) {
+    console.log('Champs requis manquants');
     if (imageFile) fs.unlinkSync(imageFile.path);
     return res.status(400).json({ error: 'Champs requis manquants' });
   }
 
   if (req.user.role !== 'seller') {
+    console.log('Utilisateur non vendeur, rôle:', req.user.role);
     if (imageFile) fs.unlinkSync(imageFile.path);
     return res.status(403).json({ error: 'Accès refusé. Réservé aux vendeurs.' });
   }
@@ -24,12 +31,15 @@ exports.createEvent = async (req, res) => {
   let parsedCategories;
   try {
     parsedCategories = JSON.parse(categories);
+    console.log('Catégories parsées:', parsedCategories);
   } catch (e) {
+    console.log('Erreur parsing JSON des catégories:', e.message);
     if (imageFile) fs.unlinkSync(imageFile.path);
     return res.status(400).json({ error: 'Format des catégories invalide' });
   }
 
   if (!Array.isArray(parsedCategories) || parsedCategories.length === 0) {
+    console.log('Catégories vides ou non tableau');
     if (imageFile) fs.unlinkSync(imageFile.path);
     return res.status(400).json({ error: 'Au moins une catégorie est requise' });
   }
@@ -38,7 +48,9 @@ exports.createEvent = async (req, res) => {
 
   try {
     const sumCategories = parsedCategories.reduce((sum, cat) => sum + parseInt(cat.quantity_total || 0), 0);
+    console.log('Somme catégories:', sumCategories, 'total_access:', total_access);
     if (sumCategories !== parseInt(total_access)) {
+      console.log('Incohérence somme catégories / total_access');
       await transaction.rollback();
       if (imageFile) fs.unlinkSync(imageFile.path);
       return res.status(400).json({ error: 'Le nombre total d\'accès doit être égal à la somme des quantités des catégories' });
@@ -47,8 +59,10 @@ exports.createEvent = async (req, res) => {
     let image_url = null;
     if (imageFile) {
       image_url = `/uploads/events/${imageFile.filename}`;
+      console.log('Image URL:', image_url);
     }
 
+    console.log('Création de l\'événement...');
     const event = await Event.create({
       seller_id: req.user.id,
       title,
@@ -59,6 +73,7 @@ exports.createEvent = async (req, res) => {
       status: 'draft',
       image_url
     }, { transaction });
+    console.log('Événement créé avec id:', event.id);
 
     const categoriesToCreate = parsedCategories.map(cat => ({
       name: cat.name,
@@ -68,10 +83,13 @@ exports.createEvent = async (req, res) => {
       event_id: event.id,
       quantity_sold: 0
     }));
+    console.log('Catégories à créer:', categoriesToCreate);
 
     await AccessCategory.bulkCreate(categoriesToCreate, { transaction });
+    console.log('Catégories insérées');
 
     await transaction.commit();
+    console.log('Transaction commitée');
 
     const createdEvent = await Event.findByPk(event.id, {
       include: [{ model: AccessCategory, as: 'categories' }]
@@ -79,11 +97,12 @@ exports.createEvent = async (req, res) => {
 
     res.status(201).json(createdEvent);
   } catch (error) {
+    console.log('ERREUR dans createEvent:');
+    console.error(error); // Affiche la stack complète
     await transaction.rollback();
     if (imageFile) {
       try { fs.unlinkSync(imageFile.path); } catch (e) {}
     }
-    console.error('Erreur dans createEvent:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
@@ -92,6 +111,7 @@ exports.createEvent = async (req, res) => {
 // OBTENIR TOUS LES ÉVÉNEMENTS PUBLIÉS
 // ============================================
 exports.getEvents = async (req, res) => {
+  console.log('--- getEvents ---');
   try {
     const events = await Event.findAll({
       where: { status: 'published' },
@@ -103,7 +123,7 @@ exports.getEvents = async (req, res) => {
     });
     res.json(events);
   } catch (error) {
-    console.error(error);
+    console.error('Erreur getEvents:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
@@ -112,6 +132,7 @@ exports.getEvents = async (req, res) => {
 // OBTENIR UN ÉVÉNEMENT PAR ID
 // ============================================
 exports.getEventById = async (req, res) => {
+  console.log('--- getEventById --- id:', req.params.id);
   try {
     const event = await Event.findByPk(req.params.id, {
       include: [
@@ -124,7 +145,7 @@ exports.getEventById = async (req, res) => {
     }
     res.json(event);
   } catch (error) {
-    console.error(error);
+    console.error('Erreur getEventById:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
@@ -133,7 +154,9 @@ exports.getEventById = async (req, res) => {
 // OBTENIR LES ÉVÉNEMENTS DU VENDEUR CONNECTÉ
 // ============================================
 exports.getMyEvents = async (req, res) => {
+  console.log('--- getMyEvents --- user:', req.user.id, req.user.role);
   if (req.user.role !== 'seller') {
+    console.log('Accès refusé: utilisateur non vendeur');
     return res.status(403).json({ error: 'Accès refusé' });
   }
   try {
@@ -144,7 +167,7 @@ exports.getMyEvents = async (req, res) => {
     });
     res.json(events);
   } catch (error) {
-    console.error(error);
+    console.error('Erreur getMyEvents:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
@@ -153,21 +176,25 @@ exports.getMyEvents = async (req, res) => {
 // PUBLIER UN ÉVÉNEMENT (draft -> published)
 // ============================================
 exports.publishEvent = async (req, res) => {
+  console.log('--- publishEvent --- id:', req.params.id);
   try {
     const event = await Event.findOne({
       where: { id: req.params.id, seller_id: req.user.id }
     });
     if (!event) {
+      console.log('Événement non trouvé');
       return res.status(404).json({ error: 'Événement non trouvé' });
     }
     if (event.status !== 'draft') {
+      console.log('Statut incorrect:', event.status);
       return res.status(400).json({ error: 'Événement déjà publié ou annulé' });
     }
     event.status = 'published';
     await event.save();
+    console.log('Événement publié');
     res.json(event);
   } catch (error) {
-    console.error(error);
+    console.error('Erreur publishEvent:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
@@ -176,6 +203,7 @@ exports.publishEvent = async (req, res) => {
 // MODIFIER UN ÉVÉNEMENT (avec possibilité de changer l'image)
 // ============================================
 exports.updateEvent = async (req, res) => {
+  console.log('--- updateEvent --- id:', req.params.id);
   const imageFile = req.file;
   const { title, description, date, location, total_access, categories, keepImage } = req.body;
   const eventId = req.params.id;
@@ -185,10 +213,12 @@ exports.updateEvent = async (req, res) => {
       where: { id: eventId, seller_id: req.user.id }
     });
     if (!event) {
+      console.log('Événement non trouvé');
       if (imageFile) fs.unlinkSync(imageFile.path);
       return res.status(404).json({ error: 'Événement non trouvé' });
     }
     if (event.status !== 'draft') {
+      console.log('Impossible de modifier un événement publié');
       if (imageFile) fs.unlinkSync(imageFile.path);
       return res.status(400).json({ error: 'Impossible de modifier un événement déjà publié' });
     }
@@ -197,7 +227,9 @@ exports.updateEvent = async (req, res) => {
     if (categories) {
       try {
         parsedCategories = JSON.parse(categories);
+        console.log('Catégories parsées (update):', parsedCategories);
       } catch (e) {
+        console.log('Erreur parsing JSON (update):', e.message);
         if (imageFile) fs.unlinkSync(imageFile.path);
         return res.status(400).json({ error: 'Format des catégories invalide' });
       }
@@ -205,7 +237,9 @@ exports.updateEvent = async (req, res) => {
 
     if (parsedCategories) {
       const sumCategories = parsedCategories.reduce((sum, cat) => sum + parseInt(cat.quantity_total || 0), 0);
+      console.log('Somme catégories (update):', sumCategories, 'total_access:', total_access);
       if (sumCategories !== parseInt(total_access)) {
+        console.log('Incohérence somme catégories / total_access (update)');
         if (imageFile) fs.unlinkSync(imageFile.path);
         return res.status(400).json({ error: 'Le nombre total d\'accès doit être égal à la somme des quantités des catégories' });
       }
@@ -216,19 +250,28 @@ exports.updateEvent = async (req, res) => {
     try {
       let image_url = event.image_url;
       if (imageFile) {
+        console.log('Nouvelle image uploadée:', imageFile.filename);
         if (event.image_url) {
           const oldPath = path.join(__dirname, '../../', event.image_url);
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+          if (fs.existsSync(oldPath)) {
+            console.log('Suppression ancienne image:', oldPath);
+            fs.unlinkSync(oldPath);
+          }
         }
         image_url = `/uploads/events/${imageFile.filename}`;
       } else if (keepImage === 'false') {
+        console.log('Suppression de l\'image demandée');
         if (event.image_url) {
           const oldPath = path.join(__dirname, '../../', event.image_url);
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+          if (fs.existsSync(oldPath)) {
+            console.log('Suppression image:', oldPath);
+            fs.unlinkSync(oldPath);
+          }
         }
         image_url = null;
       }
 
+      console.log('Mise à jour événement...');
       await event.update({
         title,
         description,
@@ -239,6 +282,7 @@ exports.updateEvent = async (req, res) => {
       }, { transaction });
 
       if (parsedCategories) {
+        console.log('Suppression anciennes catégories');
         await AccessCategory.destroy({ where: { event_id: event.id }, transaction });
         const categoriesToCreate = parsedCategories.map(cat => ({
           name: cat.name,
@@ -248,16 +292,19 @@ exports.updateEvent = async (req, res) => {
           event_id: event.id,
           quantity_sold: 0
         }));
+        console.log('Création nouvelles catégories:', categoriesToCreate);
         await AccessCategory.bulkCreate(categoriesToCreate, { transaction });
       }
 
       await transaction.commit();
+      console.log('Transaction commitée (update)');
 
       const updatedEvent = await Event.findByPk(event.id, {
         include: [{ model: AccessCategory, as: 'categories' }]
       });
       res.json(updatedEvent);
     } catch (error) {
+      console.log('Erreur dans la transaction updateEvent:', error);
       await transaction.rollback();
       if (imageFile) fs.unlinkSync(imageFile.path);
       throw error;
@@ -272,29 +319,36 @@ exports.updateEvent = async (req, res) => {
 // SUPPRIMER UN ÉVÉNEMENT (seulement si aucune vente)
 // ============================================
 exports.deleteEvent = async (req, res) => {
+  console.log('--- deleteEvent --- id:', req.params.id);
   try {
     const event = await Event.findOne({
       where: { id: req.params.id, seller_id: req.user.id },
       include: [{ model: AccessCategory, as: 'categories' }]
     });
     if (!event) {
+      console.log('Événement non trouvé');
       return res.status(404).json({ error: 'Événement non trouvé' });
     }
 
     const hasSales = event.categories.some(cat => cat.quantity_sold > 0);
     if (hasSales) {
+      console.log('Impossible de supprimer : ventes existantes');
       return res.status(400).json({ error: 'Impossible de supprimer un événement avec des ventes' });
     }
 
     if (event.image_url) {
       const imagePath = path.join(__dirname, '../../', event.image_url);
-      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      if (fs.existsSync(imagePath)) {
+        console.log('Suppression image:', imagePath);
+        fs.unlinkSync(imagePath);
+      }
     }
 
     await event.destroy();
+    console.log('Événement supprimé');
     res.json({ message: 'Événement supprimé avec succès' });
   } catch (error) {
-    console.error(error);
+    console.error('Erreur deleteEvent:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
@@ -303,6 +357,7 @@ exports.deleteEvent = async (req, res) => {
 // STATISTIQUES POUR LE TABLEAU DE BORD VENDEUR
 // ============================================
 exports.getSellerStats = async (req, res) => {
+  console.log('--- getSellerStats --- user:', req.user.id);
   try {
     const events = await Event.findAll({
       where: { seller_id: req.user.id },
@@ -329,10 +384,10 @@ exports.getSellerStats = async (req, res) => {
       totalCommission,
       netRevenue: totalRevenue - totalCommission
     };
-
+    console.log('Stats calculées:', stats);
     res.json(stats);
   } catch (error) {
-    console.error(error);
+    console.error('Erreur getSellerStats:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
