@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import API from '../services/api';
 import { Tabs, Tab, Table, Button, Badge, Spinner, Alert, Form, Modal, Row, Col } from 'react-bootstrap';
-import { FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaKey, FaUserPlus } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaKey, FaUserPlus, FaCheck, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -38,9 +38,7 @@ function UserManagement() {
   const fetchAllUsers = async () => {
     setLoading(true);
     try {
-      // Récupérer les utilisateurs de la plateforme (acheteurs, vendeurs)
       const platformRes = await API.get(`/admin/users?role=buyer,seller&page=${platformPage}&limit=${limit}`);
-      // Récupérer les administrateurs (admin, superadmin)
       const adminRes = await API.get(`/admin/users?role=admin,superadmin&page=${adminPage}&limit=${limit}`);
 
       setPlatformUsers(platformRes.data.data || []);
@@ -127,267 +125,446 @@ function UserManagement() {
   };
 
   if (currentUser?.role !== 'superadmin') {
-    return <Alert variant="danger">Accès réservé au super administrateur.</Alert>;
+    return (
+      <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '2rem' }}>
+        <Alert variant="danger" className="rounded-4 shadow-sm">Accès réservé au super administrateur.</Alert>
+      </div>
+    );
   }
 
-  if (loading) return <Spinner animation="border" />;
-  if (error) return <Alert variant="danger">{error}</Alert>;
+  if (loading) {
+    return (
+      <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spinner animation="border" variant="warning" style={{ width: '3rem', height: '3rem' }} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '2rem' }}>
+        <Alert variant="danger" className="rounded-4 shadow-sm">{error}</Alert>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h2 className="mb-4">Gestion des utilisateurs</h2>
-      <Button variant="success" onClick={() => setShowCreateModal(true)} className="mb-3">
-        <FaUserPlus className="me-2" /> Créer un utilisateur
-      </Button>
+    <div style={{ backgroundColor: '#f8fafc', minHeight: '100vh', padding: '2rem' }}>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="fw-bold" style={{ color: '#0f172a' }}>Gestion des utilisateurs</h2>
+        <Button
+          variant="success"
+          onClick={() => setShowCreateModal(true)}
+          className="rounded-pill px-4 py-2 border-0 fw-semibold"
+          style={{ background: 'linear-gradient(135deg, #10b981 0%, #0f9d6b 100%)' }}
+        >
+          <FaUserPlus className="me-2" /> Créer un utilisateur
+        </Button>
+      </div>
 
-      <Tabs defaultActiveKey="platform" id="user-management-tabs" className="mb-3">
-        <Tab eventKey="platform" title={`Utilisateurs plateforme (${platformTotal})`}>
+      <Tabs defaultActiveKey="platform" id="user-management-tabs" className="mb-3" variant="pills">
+        <Tab
+          eventKey="platform"
+          title={
+            <span>
+              Utilisateurs plateforme <Badge bg="secondary" className="ms-1">{platformTotal}</Badge>
+            </span>
+          }
+          tabClassName="text-dark"
+        >
           <UserTable
             users={platformUsers}
             onEdit={handleEdit}
             onToggleActive={handleToggleActive}
             onDelete={handleDeleteUser}
-            onPassword={setSelectedUser}
-            onShowPassword={() => setShowPasswordModal(true)}
+            onPassword={(user) => { setSelectedUser(user); setShowPasswordModal(true); }}
           />
-          {/* Pagination pour platformUsers à implémenter si nécessaire */}
         </Tab>
-        <Tab eventKey="admins" title={`Administrateurs (${adminTotal})`}>
+        <Tab
+          eventKey="admins"
+          title={
+            <span>
+              Administrateurs <Badge bg="secondary" className="ms-1">{adminTotal}</Badge>
+            </span>
+          }
+          tabClassName="text-dark"
+        >
           <UserTable
             users={adminUsers}
             onEdit={handleEdit}
             onToggleActive={handleToggleActive}
             onDelete={handleDeleteUser}
-            onPassword={setSelectedUser}
-            onShowPassword={() => setShowPasswordModal(true)}
+            onPassword={(user) => { setSelectedUser(user); setShowPasswordModal(true); }}
           />
         </Tab>
       </Tabs>
 
       {/* Modal d'édition */}
-      <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Modifier l'utilisateur</Modal.Title>
+      <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold" style={{ color: '#0f172a' }}>Modifier l'utilisateur</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Email</Form.Label>
-              <Form.Control
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-              />
+              <Form.Label className="fw-semibold small text-muted">Email</Form.Label>
+              <div className="d-flex align-items-center border rounded-3 p-2 bg-light">
+                <Form.Control
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                />
+              </div>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Nom (optionnel)</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-              />
+              <Form.Label className="fw-semibold small text-muted">Nom (optionnel)</Form.Label>
+              <div className="d-flex align-items-center border rounded-3 p-2 bg-light">
+                <Form.Control
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                />
+              </div>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Rôle</Form.Label>
-              <Form.Select
-                value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
-              >
-                <option value="buyer">Acheteur</option>
-                <option value="seller">Vendeur</option>
-                <option value="admin">Admin secondaire</option>
-                <option value="superadmin">Super Admin</option>
-              </Form.Select>
+              <Form.Label className="fw-semibold small text-muted">Rôle</Form.Label>
+              <div className="border rounded-3 p-2 bg-light">
+                <Form.Select
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value})}
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                >
+                  <option value="buyer">Acheteur</option>
+                  <option value="seller">Vendeur</option>
+                  <option value="admin">Admin secondaire</option>
+                  <option value="superadmin">Super Admin</option>
+                </Form.Select>
+              </div>
             </Form.Group>
             {formData.role === 'seller' && (
               <Form.Group className="mb-3">
-                <Form.Label>Catégorie de vendeur</Form.Label>
-                <Form.Select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                >
-                  <option value="">Sélectionnez</option>
-                  <option value="organizer">Organisateur</option>
-                  <option value="artist">Artiste</option>
-                  <option value="enterprise">Entreprise</option>
-                  <option value="manager">Manager</option>
-                  <option value="coach">Coach</option>
-                  <option value="favorite">Favorite</option>
-                </Form.Select>
+                <Form.Label className="fw-semibold small text-muted">Catégorie de vendeur</Form.Label>
+                <div className="border rounded-3 p-2 bg-light">
+                  <Form.Select
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    className="border-0 bg-transparent"
+                    style={{ boxShadow: 'none' }}
+                  >
+                    <option value="">Sélectionnez</option>
+                    <option value="organizer">Organisateur</option>
+                    <option value="artist">Artiste</option>
+                    <option value="enterprise">Entreprise</option>
+                    <option value="manager">Manager</option>
+                    <option value="coach">Coach</option>
+                    <option value="favorite">Favorite</option>
+                  </Form.Select>
+                </div>
               </Form.Group>
             )}
             <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                label="Compte actif"
-                checked={formData.active}
-                onChange={(e) => setFormData({...formData, active: e.target.checked})}
-              />
+              <div className="d-flex align-items-center">
+                <Form.Check
+                  type="checkbox"
+                  id="active-check"
+                  checked={formData.active}
+                  onChange={(e) => setFormData({...formData, active: e.target.checked})}
+                  className="me-2"
+                />
+                <Form.Label htmlFor="active-check" className="mb-0">Compte actif</Form.Label>
+              </div>
             </Form.Group>
           </Form>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowEditModal(false)}>Annuler</Button>
-          <Button variant="primary" onClick={handleUpdateUser}>Enregistrer</Button>
+        <Modal.Footer className="border-0 pt-0">
+          <Button variant="secondary" onClick={() => setShowEditModal(false)} className="rounded-pill px-4">
+            Annuler
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleUpdateUser}
+            className="rounded-pill px-4 border-0"
+            style={{ background: 'linear-gradient(135deg, #10b981 0%, #0f9d6b 100%)' }}
+          >
+            Enregistrer
+          </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Modal de création */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Créer un utilisateur</Modal.Title>
+      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold" style={{ color: '#0f172a' }}>Créer un utilisateur</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Email *</Form.Label>
-              <Form.Control
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                required
-              />
+              <Form.Label className="fw-semibold small text-muted">Email *</Form.Label>
+              <div className="d-flex align-items-center border rounded-3 p-2 bg-light">
+                <Form.Control
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  required
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                />
+              </div>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Mot de passe *</Form.Label>
-              <Form.Control
-                type="password"
-                value={formData.password || ''}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                required
-              />
+              <Form.Label className="fw-semibold small text-muted">Mot de passe *</Form.Label>
+              <div className="d-flex align-items-center border rounded-3 p-2 bg-light">
+                <Form.Control
+                  type="password"
+                  value={formData.password || ''}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  required
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                />
+              </div>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Nom (optionnel)</Form.Label>
-              <Form.Control
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-              />
+              <Form.Label className="fw-semibold small text-muted">Nom (optionnel)</Form.Label>
+              <div className="d-flex align-items-center border rounded-3 p-2 bg-light">
+                <Form.Control
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                />
+              </div>
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Rôle</Form.Label>
-              <Form.Select
-                value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
-              >
-                <option value="buyer">Acheteur</option>
-                <option value="seller">Vendeur</option>
-                <option value="admin">Admin secondaire</option>
-                <option value="superadmin">Super Admin</option>
-              </Form.Select>
+              <Form.Label className="fw-semibold small text-muted">Rôle</Form.Label>
+              <div className="border rounded-3 p-2 bg-light">
+                <Form.Select
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value})}
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                >
+                  <option value="buyer">Acheteur</option>
+                  <option value="seller">Vendeur</option>
+                  <option value="admin">Admin secondaire</option>
+                  <option value="superadmin">Super Admin</option>
+                </Form.Select>
+              </div>
             </Form.Group>
             {formData.role === 'seller' && (
               <Form.Group className="mb-3">
-                <Form.Label>Catégorie de vendeur</Form.Label>
-                <Form.Select
-                  value={formData.category}
-                  onChange={(e) => setFormData({...formData, category: e.target.value})}
-                >
-                  <option value="">Sélectionnez</option>
-                  <option value="organizer">Organisateur</option>
-                  <option value="artist">Artiste</option>
-                  <option value="enterprise">Entreprise</option>
-                  <option value="manager">Manager</option>
-                  <option value="coach">Coach</option>
-                  <option value="favorite">Favorite</option>
-                </Form.Select>
+                <Form.Label className="fw-semibold small text-muted">Catégorie de vendeur</Form.Label>
+                <div className="border rounded-3 p-2 bg-light">
+                  <Form.Select
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    className="border-0 bg-transparent"
+                    style={{ boxShadow: 'none' }}
+                  >
+                    <option value="">Sélectionnez</option>
+                    <option value="organizer">Organisateur</option>
+                    <option value="artist">Artiste</option>
+                    <option value="enterprise">Entreprise</option>
+                    <option value="manager">Manager</option>
+                    <option value="coach">Coach</option>
+                    <option value="favorite">Favorite</option>
+                  </Form.Select>
+                </div>
               </Form.Group>
             )}
             <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                label="Compte actif"
-                checked={formData.active}
-                onChange={(e) => setFormData({...formData, active: e.target.checked})}
-              />
+              <div className="d-flex align-items-center">
+                <Form.Check
+                  type="checkbox"
+                  id="active-create"
+                  checked={formData.active}
+                  onChange={(e) => setFormData({...formData, active: e.target.checked})}
+                  className="me-2"
+                />
+                <Form.Label htmlFor="active-create" className="mb-0">Compte actif</Form.Label>
+              </div>
             </Form.Group>
           </Form>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowCreateModal(false)}>Annuler</Button>
-          <Button variant="success" onClick={handleCreateUser}>Créer</Button>
+        <Modal.Footer className="border-0 pt-0">
+          <Button variant="secondary" onClick={() => setShowCreateModal(false)} className="rounded-pill px-4">
+            Annuler
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleCreateUser}
+            className="rounded-pill px-4 border-0"
+            style={{ background: 'linear-gradient(135deg, #10b981 0%, #0f9d6b 100%)' }}
+          >
+            Créer
+          </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Modal de changement de mot de passe */}
-      <Modal show={showPasswordModal} onHide={() => setShowPasswordModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Changer le mot de passe</Modal.Title>
+      <Modal show={showPasswordModal} onHide={() => setShowPasswordModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold" style={{ color: '#0f172a' }}>Changer le mot de passe</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
             <Form.Group>
-              <Form.Label>Nouveau mot de passe</Form.Label>
-              <Form.Control
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
+              <Form.Label className="fw-semibold small text-muted">Nouveau mot de passe</Form.Label>
+              <div className="d-flex align-items-center border rounded-3 p-2 bg-light">
+                <Form.Control
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="border-0 bg-transparent"
+                  style={{ boxShadow: 'none' }}
+                />
+              </div>
             </Form.Group>
           </Form>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowPasswordModal(false)}>Annuler</Button>
-          <Button variant="primary" onClick={handlePasswordChange}>Changer</Button>
+        <Modal.Footer className="border-0 pt-0">
+          <Button variant="secondary" onClick={() => setShowPasswordModal(false)} className="rounded-pill px-4">
+            Annuler
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handlePasswordChange}
+            className="rounded-pill px-4 border-0"
+            style={{ background: 'linear-gradient(135deg, #10b981 0%, #0f9d6b 100%)' }}
+          >
+            Changer
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>
   );
 }
 
-// Composant tableau réutilisable
-function UserTable({ users, onEdit, onToggleActive, onDelete, onPassword, onShowPassword }) {
+// Sous-composant Tableau utilisateur
+function UserTable({ users, onEdit, onToggleActive, onDelete, onPassword }) {
   return (
-    <Table striped bordered hover responsive>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Email</th>
-          <th>Nom</th>
-          <th>Rôle</th>
-          <th>Statut</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {users.map(u => (
-          <tr key={u.id}>
-            <td>{u.id}</td>
-            <td>{u.email}</td>
-            <td>{u.name || '-'}</td>
-            <td>
-              <Badge bg={
-                u.role === 'superadmin' ? 'danger' :
-                u.role === 'admin' ? 'warning' :
-                u.role === 'seller' ? 'info' : 'secondary'
-              }>
-                {u.role}
-              </Badge>
-            </td>
-            <td>
-              <Badge bg={u.active ? 'success' : 'secondary'}>
-                {u.active ? 'Actif' : 'Inactif'}
-              </Badge>
-            </td>
-            <td>
-              <Button size="sm" variant="info" onClick={() => onEdit(u)} className="me-2">
-                <FaEdit />
-              </Button>
-              <Button size="sm" variant={u.active ? 'warning' : 'success'} onClick={() => onToggleActive(u)} className="me-2">
-                {u.active ? <FaToggleOff /> : <FaToggleOn />}
-              </Button>
-              <Button size="sm" variant="primary" onClick={() => { onPassword(u); onShowPassword(); }} className="me-2">
-                <FaKey />
-              </Button>
-              <Button size="sm" variant="danger" onClick={() => onDelete(u)}>
-                <FaTrash />
-              </Button>
-            </td>
+    <div className="table-responsive bg-white rounded-4 shadow-sm p-3">
+      <Table hover className="align-middle mb-0">
+        <thead style={{ backgroundColor: '#f1f5f9', color: '#0f172a' }}>
+          <tr>
+            <th>ID</th>
+            <th>Email</th>
+            <th>Nom</th>
+            <th>Rôle</th>
+            <th>Statut</th>
+            <th style={{ width: '200px' }}>Actions</th>
           </tr>
-        ))}
-      </tbody>
-    </Table>
+        </thead>
+        <tbody>
+          {users.map(u => (
+            <tr key={u.id}>
+              <td className="fw-semibold">#{u.id}</td>
+              <td>{u.email}</td>
+              <td>{u.name || '-'}</td>
+              <td>
+                <Badge
+                  style={{
+                    backgroundColor:
+                      u.role === 'superadmin' ? '#ef4444' :
+                      u.role === 'admin' ? '#f59e0b' :
+                      u.role === 'seller' ? '#10b981' : '#6c757d',
+                    color: '#fff',
+                    padding: '0.5em 0.8em',
+                    borderRadius: '20px',
+                    fontWeight: 500
+                  }}
+                >
+                  {u.role}
+                </Badge>
+              </td>
+              <td>
+                <Badge
+                  style={{
+                    backgroundColor: u.active ? '#10b981' : '#6c757d',
+                    color: '#fff',
+                    padding: '0.5em 0.8em',
+                    borderRadius: '20px',
+                    fontWeight: 500
+                  }}
+                >
+                  {u.active ? 'Actif' : 'Inactif'}
+                </Badge>
+              </td>
+              <td>
+                <div className="d-flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline-info"
+                    className="rounded-pill px-3"
+                    onClick={() => onEdit(u)}
+                    title="Modifier"
+                    style={{ borderColor: '#10b981', color: '#10b981' }}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#10b981'; e.target.style.color = '#fff'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; e.target.style.color = '#10b981'; }}
+                  >
+                    <FaEdit size={12} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={u.active ? 'outline-warning' : 'outline-success'}
+                    className="rounded-pill px-3"
+                    onClick={() => onToggleActive(u)}
+                    title={u.active ? 'Désactiver' : 'Activer'}
+                    style={{
+                      borderColor: u.active ? '#f59e0b' : '#10b981',
+                      color: u.active ? '#f59e0b' : '#10b981'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = u.active ? '#f59e0b' : '#10b981';
+                      e.target.style.color = '#fff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = 'transparent';
+                      e.target.style.color = u.active ? '#f59e0b' : '#10b981';
+                    }}
+                  >
+                    {u.active ? <FaToggleOff size={12} /> : <FaToggleOn size={12} />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline-primary"
+                    className="rounded-pill px-3"
+                    onClick={() => onPassword(u)}
+                    title="Changer mot de passe"
+                    style={{ borderColor: '#10b981', color: '#10b981' }}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#10b981'; e.target.style.color = '#fff'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; e.target.style.color = '#10b981'; }}
+                  >
+                    <FaKey size={12} />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline-danger"
+                    className="rounded-pill px-3"
+                    onClick={() => onDelete(u)}
+                    title="Supprimer"
+                    style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                    onMouseEnter={(e) => { e.target.style.backgroundColor = '#ef4444'; e.target.style.color = '#fff'; }}
+                    onMouseLeave={(e) => { e.target.style.backgroundColor = 'transparent'; e.target.style.color = '#ef4444'; }}
+                  >
+                    <FaTrash size={12} />
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+      {users.length === 0 && (
+        <p className="text-center text-muted py-4">Aucun utilisateur dans cette catégorie.</p>
+      )}
+    </div>
   );
 }
 

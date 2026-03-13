@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
@@ -11,7 +11,6 @@ import Events from './pages/Events';
 import Comments from './pages/Comments';
 import ProfilePage from './pages/ProfilePage';
 import Transactions from './pages/Transactions';
-// import Media from './pages/Media';
 import Users from './pages/Users';
 import Media from './pages/Media';
 import Logs from './pages/Logs';
@@ -23,13 +22,28 @@ import './index.css';
 function AppContent() {
   const { user } = useAuth();
   const isAuthenticated = user && ['admin', 'superadmin'].includes(user.role);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
   return (
     <div>
-      {isAuthenticated && <Navbar />}
+      {isAuthenticated && (
+        <div style={{ marginLeft: sidebarCollapsed ? '70px' : '260px', transition: 'margin-left 0.3s ease' }}>
+          <Navbar />
+        </div>
+      )}
       <div style={{ display: 'flex', minHeight: isAuthenticated ? 'calc(100vh - 56px)' : '100vh' }}>
-        {isAuthenticated && <Sidebar />}
-        <div className="main-content" style={{ flex: 1, padding: '2rem' }}>
+        {isAuthenticated && <Sidebar collapsed={sidebarCollapsed} toggleSidebar={toggleSidebar} />}
+        <div
+          className="main-content"
+          style={{
+            flex: 1,
+            padding: '2rem',
+            marginLeft: isAuthenticated ? (sidebarCollapsed ? '70px' : '260px') : 0,
+            transition: 'margin-left 0.3s ease'
+          }}
+        >
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
@@ -40,7 +54,6 @@ function AppContent() {
             <Route path="/logs" element={<PrivateRoute><Logs /></PrivateRoute>} />
             <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-            <Route path="/media" element={<PrivateRoute><Media /></PrivateRoute>} />
             <Route path="/media" element={<PrivateRoute><Media /></PrivateRoute>} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
