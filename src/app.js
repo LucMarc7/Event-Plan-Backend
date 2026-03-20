@@ -11,8 +11,13 @@ dotenv.config();
 
 const app = express();
 
-// Sécurité
-app.use(helmet());
+// Sécurité - configuration modifiée pour autoriser cross-origin sur les ressources
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
+
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -23,8 +28,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Servir les fichiers uploadés
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Servir les fichiers uploadés (ajustez le chemin si besoin)
+const uploadDir = process.env.UPLOAD_DIR || path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadDir));
 
 // Rate limiting
 const limiter = rateLimit({
@@ -41,23 +47,20 @@ sequelize.authenticate()
   })
   .catch(err => {
     console.error('❌ Database connection error:', err);
-    process.exit(1); // Arrêter le processus si la DB ne se connecte pas
+    process.exit(1);
   });
 
-// Synchronisation des modèles et initialisation des paramètres
+// Synchronisation et initialisation (inchangé)
 async function syncAndInit() {
   try {
     if (process.env.NODE_ENV !== 'production') {
       await syncDb.sync({ alter: true });
       console.log('✅ Database synced (development)');
     } else {
-      // En production, pour le premier déploiement, on crée les tables si elles n'existent pas
-      // sans modifier la structure (alter: false). Après la première exécution, on peut commenter cette ligne.
-      await syncDb.sync(); // crée les tables si elles n'existent pas
-      console.log('✅ Database synced (production - tables créées si nécessaire)');
+      await syncDb.sync();
+      console.log('✅ Database synced (production)');
     }
 
-    // Initialisation des paramètres par défaut (dans tous les cas)
     const { Setting } = require('./models');
     const defaults = [
       { key: 'site_name', value: 'Event Plan', type: 'string' },
@@ -75,7 +78,6 @@ async function syncAndInit() {
   }
 }
 
-// Exécuter l'initialisation avant de démarrer le serveur
 syncAndInit().then(() => {
   // Routes API
   app.use('/api/auth', require('./routes/authRoutes'));
