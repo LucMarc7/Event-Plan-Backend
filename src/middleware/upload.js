@@ -1,18 +1,22 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { Media } = require('../models'); // Ajout
+const { Media } = require('../models');
 
 const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
+    console.log(`📁 Dossier créé : ${dir}`);
   }
 };
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let uploadPath;
-    if (req.baseUrl && req.baseUrl.includes('users')) {
+    // Vérifie si la route concerne l'avatar
+    if (req.baseUrl && req.baseUrl.includes('auth') && req.route && req.route.path === '/profile/avatar') {
+      uploadPath = path.join(__dirname, '../../uploads/avatars');
+    } else if (req.baseUrl && req.baseUrl.includes('users')) {
       uploadPath = path.join(__dirname, '../../uploads/avatars');
     } else {
       uploadPath = path.join(__dirname, '../../uploads/events');
@@ -23,7 +27,9 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    const filename = file.fieldname + '-' + uniqueSuffix + ext;
+    console.log(`📝 Nom de fichier généré : ${filename}`);
+    cb(null, filename);
   }
 });
 
@@ -37,7 +43,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Augmenté à 10 Mo (ajustez selon besoin)
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter
 });
 
@@ -58,6 +64,7 @@ upload.record = async (req, res, next) => {
       related_type: req.body.related_type || null,
       related_id: req.body.related_id || null
     });
+    console.log('✅ Média enregistré en base :', url);
   } catch (error) {
     console.error('Erreur enregistrement média:', error);
   }
