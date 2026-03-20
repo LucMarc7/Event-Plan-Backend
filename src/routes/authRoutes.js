@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const authController = require('../controllers/authController');
-const userController = require('../controllers/userController'); // Import du contrôleur utilisateur
-const authenticate = require('../middleware/auth'); // Middleware d'authentification
-const upload = require('../middleware/upload'); // Middleware pour les fichiers
+const userController = require('../controllers/userController');
+const authenticate = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 // Routes publiques
 router.post(
@@ -32,11 +32,17 @@ router.post(
   authController.login
 );
 
-// Routes protégées pour le profil utilisateur (ajoutées pour répondre à l'appel /api/auth/profile)
-router.use(authenticate); // Toutes les routes suivantes nécessitent un token valide
+// Routes protégées (authentification requise)
+router.use(authenticate);
 
+// Profil
 router.get('/profile', userController.getProfile);
-router.put('/profile', upload.single('avatar'), userController.updateProfile);
+router.put('/profile', express.json(), userController.updateProfile);
+
+// Avatar
+router.put('/profile/avatar', upload.single('avatar'), userController.updateAvatar);
+
+// Changement de mot de passe
 router.put('/change-password', userController.changePassword);
 
 module.exports = router;

@@ -22,10 +22,8 @@ exports.updateProfile = async (req, res) => {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
 
-    // Gestion de l'avatar
     let avatar = user.avatar;
     if (req.file) {
-      // Supprimer l'ancien avatar si existant
       if (user.avatar) {
         const oldPath = path.join(__dirname, '../../', user.avatar);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
@@ -66,6 +64,32 @@ exports.changePassword = async (req, res) => {
     await user.save();
 
     res.json({ message: 'Mot de passe mis à jour avec succès' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Mise à jour de l'avatar uniquement (upload séparé)
+exports.updateAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Aucun fichier fourni' });
+    }
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: 'Utilisateur non trouvé' });
+
+    // Supprimer l'ancien avatar s'il existe
+    if (user.avatar) {
+      const oldPath = path.join(__dirname, '../../', user.avatar);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    await user.update({ avatar: avatarUrl });
+
+    const userData = user.toJSON();
+    delete userData.password;
+    res.json(userData);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
