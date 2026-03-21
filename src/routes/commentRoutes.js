@@ -1,41 +1,79 @@
 const express = require('express');
 const router = express.Router();
-const { Comment, User, Event } = require('../models');
 const authenticate = require('../middleware/auth');
+const Comment = require('../models/Comment'); // adaptez selon votre modèle
+const Post = require('../models/Post');
+const User = require('../models/User');
 
-// Route publique : récupérer les commentaires visibles (non masqués)
-router.get('/public', async (req, res) => {
+// GET /comments – liste paginée, avec option featured
+router.get('/', async (req, res) => {
   try {
-    const comments = await Comment.findAll({
-      where: { hidden: false },
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const where = {};
+    if (req.query.featured === 'true') where.featured = true;
+
+    const { count, rows } = await Comment.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['created_at', 'DESC']],
       include: [
-        { model: User, as: 'user', attributes: ['id', 'email'] },
-        { model: Event, as: 'event', attributes: ['id', 'title'] }
-      ],
-      order: [['createdAt', 'DESC']],
-      limit: 50
+        { model: User, as: 'author', attributes: ['id', 'name'] },
+        { model: Post, as: 'post', attributes: ['id', 'title', 'slug'] }
+      ]
     });
-    res.json(comments);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+
+    res.json({
+      comments: rows,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Route protégée : ajouter un commentaire (utilisateur connecté)
+// POST /comments – créer un commentaire (authentifié)
 router.post('/', authenticate, async (req, res) => {
-  const { event_id, content, rating } = req.body;
   try {
-    // Optionnel : vérifier que l'utilisateur a acheté un billet pour cet événement
+    const { content, post_id } = req.body;
+    if (!content || !post_id) {
+      return res.status(400).json({ error: 'Contenu et post_id requis' });
+    }
     const comment = await Comment.create({
-      user_id: req.user.id,
-      event_id,
       content,
-      rating,
-      hidden: false
+      post_id,
+      author_id: req.user.id,
+      featured: false
     });
-    res.status(201).json(comment);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    // Récupérer l’auteur et le post pour la réponse
+    const fullComment = await Comment.findByPk(comment.id, {
+      include: [
+        { model: User, as: 'author', attributes: ['id', 'name'] },
+        { model: Post, as: 'post', attributes: ['id', 'title', 'slug'] }
+      ]
+    });
+    res.status(201).json(fullComment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /comments/:id – (superadmin) toggle featured
+router.patch('/:id', authenticate, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: 'Accès non autorisé' });
+  }
+  try {
+    const comment = await Comment.findByPk(req.params.id);
+    if (!comment) return res.status(404).json({ error: 'Commentaire introuvable' });
+    comment.featured = req.body.featured !== undefined ? req.body.featured : !comment.featured;
+    await comment.save();
+    res.json(comment);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

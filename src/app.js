@@ -87,6 +87,7 @@ syncAndInit().then(() => {
   app.use('/api/comments', require('./routes/commentRoutes'));
   app.use('/api/admin', require('./routes/adminRoutes'));
   app.use('/api/users', require('./routes/userRoutes'));
+  app.use('/api/comments', require('./routes/commentRoutes'));
 
   // Servir l'application d'administration (SPA)
   app.use('/admin', express.static(path.join(__dirname, '../admin/dist')));
