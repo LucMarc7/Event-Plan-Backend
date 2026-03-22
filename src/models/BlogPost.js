@@ -20,7 +20,8 @@ const BlogPost = sequelize.define('BlogPost', {
   published_at: DataTypes.DATE,
   author_id: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: false,
+    references: { model: 'Users', key: 'id' }
   }
 }, {
   timestamps: true,
@@ -30,6 +31,7 @@ const BlogPost = sequelize.define('BlogPost', {
 
 BlogPost.associate = (models) => {
   BlogPost.belongsTo(models.User, { as: 'author', foreignKey: 'author_id' });
+  BlogPost.hasMany(models.BlogComment, { as: 'comments', foreignKey: 'post_id' });
 };
 
 module.exports = BlogPost;

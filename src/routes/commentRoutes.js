@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
       include: [{ model: User, as: 'author', attributes: ['id', 'name'] }]
     });
 
-    // Enrichir chaque commentaire avec les infos de la cible
+    // Enrichir avec les infos de la cible
     const enriched = await Promise.all(rows.map(async (comment) => {
       let target = null;
       if (comment.target_type === 'Event') {
@@ -28,10 +28,7 @@ router.get('/', async (req, res) => {
       } else if (comment.target_type === 'BlogPost') {
         target = await BlogPost.findByPk(comment.target_id, { attributes: ['id', 'title', 'slug'] });
       }
-      return {
-        ...comment.toJSON(),
-        target
-      };
+      return { ...comment.toJSON(), target };
     }));
 
     res.json({
@@ -40,20 +37,22 @@ router.get('/', async (req, res) => {
       currentPage: page
     });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Erreur GET /comments :', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /comments – créer un commentaire (authentifié)
+// POST /comments – créer un commentaire
 router.post('/', authenticate, async (req, res) => {
   try {
     const { content, target_type, target_id } = req.body;
+    console.log('🔍 Données reçues :', { content, target_type, target_id, user: req.user.id });
+
     if (!content || !target_type || !target_id) {
       return res.status(400).json({ error: 'Contenu, type et ID cible requis' });
     }
 
-    // Vérifier l’existence de la cible
+    // Vérification de l’existence de la cible
     if (target_type === 'Event') {
       const event = await Event.findByPk(target_id);
       if (!event) return res.status(404).json({ error: 'Événement introuvable' });
@@ -64,6 +63,7 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Type de cible non supporté' });
     }
 
+    // Création du commentaire
     const comment = await Comment.create({
       content,
       target_type,
@@ -72,24 +72,25 @@ router.post('/', authenticate, async (req, res) => {
       featured: false
     });
 
-    const fullComment = await Comment.findByPk(comment.id, {
-      include: [{ model: User, as: 'author', attributes: ['id', 'name'] }]
-    });
-
-    // Ajouter l’info cible (minimale) à la réponse
-    let targetInfo = null;
+    // Récupérer l’auteur et la cible pour la réponse
+    const author = await User.findByPk(req.user.id, { attributes: ['id', 'name'] });
+    let target = null;
     if (target_type === 'Event') {
-      targetInfo = await Event.findByPk(target_id, { attributes: ['id', 'title'] });
-    } else if (target_type === 'BlogPost') {
-      targetInfo = await BlogPost.findByPk(target_id, { attributes: ['id', 'title', 'slug'] });
+      target = await Event.findByPk(target_id, { attributes: ['id', 'title'] });
+    } else {
+      target = await BlogPost.findByPk(target_id, { attributes: ['id', 'title', 'slug'] });
     }
-    const responseData = fullComment.toJSON();
-    responseData.target = targetInfo;
 
-    res.status(201).json(responseData);
+    const fullComment = {
+      ...comment.toJSON(),
+      author,
+      target
+    };
+
+    res.status(201).json(fullComment);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error('❌ Erreur POST /comments :', err);
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
@@ -105,6 +106,7 @@ router.patch('/:id', authenticate, async (req, res) => {
     await comment.save();
     res.json(comment);
   } catch (err) {
+    console.error('❌ Erreur PATCH /comments/:id :', err);
     res.status(500).json({ error: err.message });
   }
 });
