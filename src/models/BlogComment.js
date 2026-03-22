@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Comment = sequelize.define('Comment', {
+const BlogComment = sequelize.define('BlogComment', {
   content: {
     type: DataTypes.TEXT,
     allowNull: false
@@ -13,18 +13,12 @@ const Comment = sequelize.define('Comment', {
   post_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    references: {
-      model: 'Posts',
-      key: 'id'
-    }
+    references: { model: 'BlogPosts', key: 'id' }
   },
   author_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    references: {
-      model: 'Users',
-      key: 'id'
-    }
+    references: { model: 'Users', key: 'id' }
   }
 }, {
   timestamps: true,
@@ -32,10 +26,9 @@ const Comment = sequelize.define('Comment', {
   updatedAt: 'updated_at'
 });
 
-// Associations
-Comment.associate = (models) => {
-  Comment.belongsTo(models.User, { as: 'author', foreignKey: 'author_id' });
-  Comment.belongsTo(models.Post, { as: 'post', foreignKey: 'post_id' });
+BlogComment.associate = (models) => {
+  BlogComment.belongsTo(models.User, { as: 'author', foreignKey: 'author_id' });
+  BlogComment.belongsTo(models.BlogPost, { as: 'post', foreignKey: 'post_id' });
 };
 
-module.exports = Comment;
+module.exports = BlogComment;

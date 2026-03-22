@@ -1,7 +1,7 @@
 const sequelize = require('../config/database');
-const Media = require('./Media');
 
-// Importer tous les modèles
+// Importer tous les modèles existants
+const Media = require('./Media');
 const User = require('./User');
 const Event = require('./Event');
 const AccessCategory = require('./AccessCategory');
@@ -11,12 +11,16 @@ const Comment = require('./Comment');
 const Ticket = require('./Ticket');
 const AdminLog = require('./AdminLog');
 const Category = require('./Category');
-const EventCategory = require('./EventCategory'); // Modèle de table de liaison
+const EventCategory = require('./EventCategory');
 const Coupon = require('./Coupon');
-const AuditLog = require('./AuditLog'); // Nouveau modèle
-const Setting = require('./Setting'); // Nouveau modèle
+const AuditLog = require('./AuditLog');
+const Setting = require('./Setting');
 
-// ==================== ASSOCIATIONS ====================
+// Nouveaux modèles pour le blog
+const BlogPost = require('./BlogPost');
+const BlogComment = require('./BlogComment');
+
+// ==================== ASSOCIATIONS EXISTANTES ====================
 
 // Utilisateurs
 User.hasMany(Event, { foreignKey: 'seller_id', as: 'events' });
@@ -34,12 +38,11 @@ AdminLog.belongsTo(User, { foreignKey: 'admin_id', as: 'admin' });
 User.hasMany(Ticket, { foreignKey: 'user_id', as: 'tickets' });
 Ticket.belongsTo(User, { foreignKey: 'user_id' });
 
-// Associations pour AuditLog
 User.hasMany(AuditLog, { foreignKey: 'admin_id', as: 'auditLogs' });
 AuditLog.belongsTo(User, { foreignKey: 'admin_id', as: 'admin' });
 
 // Événements
-Event.hasMany(AccessCategory, { foreignKey: 'event_id', as: 'categories' }); // catégories de billets
+Event.hasMany(AccessCategory, { foreignKey: 'event_id', as: 'categories' });
 AccessCategory.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
 
 Event.hasMany(Order, { foreignKey: 'event_id', as: 'orders' });
@@ -70,7 +73,25 @@ AccessCategory.hasMany(OrderItem, { foreignKey: 'access_category_id', as: 'order
 OrderItem.belongsTo(AccessCategory, { foreignKey: 'access_category_id', as: 'category' });
 
 // Billets (relation optionnelle avec Category si nécessaire)
-Ticket.belongsTo(Category, { foreignKey: 'category_id' }); // par exemple, type de billet
+Ticket.belongsTo(Category, { foreignKey: 'category_id' });
+
+// ==================== ASSOCIATIONS BLOG ====================
+
+User.hasMany(BlogPost, { foreignKey: 'author_id', as: 'blogPosts' });
+BlogPost.belongsTo(User, { foreignKey: 'author_id', as: 'author' });
+
+User.hasMany(BlogComment, { foreignKey: 'author_id', as: 'blogComments' });
+BlogComment.belongsTo(User, { foreignKey: 'author_id', as: 'author' });
+
+BlogPost.hasMany(BlogComment, { foreignKey: 'post_id', as: 'comments' });
+BlogComment.belongsTo(BlogPost, { foreignKey: 'post_id', as: 'post' });
+
+// ==================== ASSOCIATIONS MEDIA ====================
+
+Media.belongsTo(User, { foreignKey: 'uploaded_by', as: 'uploader' });
+Media.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
+User.hasMany(Media, { foreignKey: 'uploaded_by', as: 'media' });
+Event.hasMany(Media, { foreignKey: 'event_id', as: 'media' });
 
 // ==================== EXPORT ====================
 module.exports = {
@@ -87,13 +108,8 @@ module.exports = {
   EventCategory,
   Coupon,
   AuditLog,
-  Setting
+  Setting,
+  Media,
+  BlogPost,
+  BlogComment,
 };
-
-// Media.belongsTo(User, { foreignKey: 'uploaded_by', as: 'uploader' });
-// User.hasMany(Media, { foreignKey: 'uploaded_by', as: 'uploads' });
-
-Media.belongsTo(User, { foreignKey: 'uploaded_by', as: 'uploader' });
-Media.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
-User.hasMany(Media, { foreignKey: 'uploaded_by', as: 'media' });
-Event.hasMany(Media, { foreignKey: 'event_id', as: 'media' });

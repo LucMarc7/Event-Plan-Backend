@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticate = require('../middleware/auth');
-const Comment = require('../models/Comment'); // adaptez selon votre modèle
-const Post = require('../models/Post');
-const User = require('../models/User');
+const { BlogComment, BlogPost, User } = require('../models'); // importer les nouveaux modèles
 
 // GET /comments – liste paginée, avec option featured
 router.get('/', async (req, res) => {
@@ -14,14 +12,14 @@ router.get('/', async (req, res) => {
     const where = {};
     if (req.query.featured === 'true') where.featured = true;
 
-    const { count, rows } = await Comment.findAndCountAll({
+    const { count, rows } = await BlogComment.findAndCountAll({
       where,
       limit,
       offset,
       order: [['created_at', 'DESC']],
       include: [
         { model: User, as: 'author', attributes: ['id', 'name'] },
-        { model: Post, as: 'post', attributes: ['id', 'title', 'slug'] }
+        { model: BlogPost, as: 'post', attributes: ['id', 'title', 'slug'] }
       ]
     });
 
@@ -31,6 +29,7 @@ router.get('/', async (req, res) => {
       currentPage: page
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -42,21 +41,22 @@ router.post('/', authenticate, async (req, res) => {
     if (!content || !post_id) {
       return res.status(400).json({ error: 'Contenu et post_id requis' });
     }
-    const comment = await Comment.create({
+    const comment = await BlogComment.create({
       content,
       post_id,
       author_id: req.user.id,
       featured: false
     });
     // Récupérer l’auteur et le post pour la réponse
-    const fullComment = await Comment.findByPk(comment.id, {
+    const fullComment = await BlogComment.findByPk(comment.id, {
       include: [
         { model: User, as: 'author', attributes: ['id', 'name'] },
-        { model: Post, as: 'post', attributes: ['id', 'title', 'slug'] }
+        { model: BlogPost, as: 'post', attributes: ['id', 'title', 'slug'] }
       ]
     });
     res.status(201).json(fullComment);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -67,12 +67,13 @@ router.patch('/:id', authenticate, async (req, res) => {
     return res.status(403).json({ error: 'Accès non autorisé' });
   }
   try {
-    const comment = await Comment.findByPk(req.params.id);
+    const comment = await BlogComment.findByPk(req.params.id);
     if (!comment) return res.status(404).json({ error: 'Commentaire introuvable' });
     comment.featured = req.body.featured !== undefined ? req.body.featured : !comment.featured;
     await comment.save();
     res.json(comment);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
