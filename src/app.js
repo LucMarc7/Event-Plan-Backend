@@ -7,9 +7,6 @@ const { sequelize: syncDb } = require('./models');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
-const commentRoutes = require('./routes/commentRoutes');
-const blogRoutes = require('./routes/blogRoutes');
-
 dotenv.config();
 
 const app = express();
@@ -91,8 +88,6 @@ syncAndInit().then(() => {
   app.use('/api/users', require('./routes/userRoutes'));
   app.use('/api/blog', require('./routes/blogRoutes'));
   app.use('/api/comments', require('./routes/commentRoutes'));
-  app.use('/api/comments', commentRoutes);
-app.use('/api/blog', blogRoutes);
 
   // Servir l'application d'administration (SPA)
   app.use('/admin', express.static(path.join(__dirname, '../admin/dist')));

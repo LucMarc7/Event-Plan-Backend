@@ -3,14 +3,20 @@ const router = express.Router();
 const authenticate = require('../middleware/auth');
 const { Comment, User, Event, BlogPost } = require('../models');
 
-// GET /comments – liste paginée, avec option featured
+// GET /comments – liste paginée avec filtres
 router.get('/', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
     const where = {};
+
+    // Filtres
     if (req.query.featured === 'true') where.featured = true;
+    if (req.query.target_type) where.target_type = req.query.target_type;
+    if (req.query.target_id) where.target_id = parseInt(req.query.target_id);
+
+    console.log('🔍 WHERE :', where);
 
     const { count, rows } = await Comment.findAndCountAll({
       where,
@@ -20,7 +26,9 @@ router.get('/', async (req, res) => {
       include: [{ model: User, as: 'author', attributes: ['id', 'name'] }]
     });
 
-    // Enrichir avec les infos de la cible
+    console.log(`📊 ${count} commentaires trouvés`);
+
+    // Enrichir chaque commentaire avec les infos de la cible
     const enriched = await Promise.all(rows.map(async (comment) => {
       let target = null;
       if (comment.target_type === 'Event') {
@@ -38,7 +46,7 @@ router.get('/', async (req, res) => {
     });
   } catch (err) {
     console.error('❌ Erreur GET /comments :', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 

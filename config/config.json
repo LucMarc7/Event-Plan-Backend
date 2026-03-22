@@ -1,0 +1,16 @@
+{
+  "development": {
+    "username": "votre_user",
+    "password": "votre_mot_de_passe",
+    "database": "votre_base",
+    "host": "localhost",
+    "dialect": "postgres"
+  },
+  "production": {
+    "username": "votre_user_prod",
+    "password": "votre_mdp_prod",
+    "database": "votre_base_prod",
+    "host": "votre_hote",
+    "dialect": "postgres"
+  }
+}
