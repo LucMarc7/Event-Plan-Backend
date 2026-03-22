@@ -10,21 +10,18 @@ const Comment = sequelize.define('Comment', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
-  post_id: {
-    type: DataTypes.INTEGER,
+  target_type: {
+    type: DataTypes.STRING,
     allowNull: false,
-    references: {
-      model: 'Posts',
-      key: 'id'
-    }
+    defaultValue: 'Event' // 'Event' ou 'BlogPost'
+  },
+  target_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false
   },
   author_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
-    references: {
-      model: 'Users',
-      key: 'id'
-    }
+    allowNull: false
   }
 }, {
   timestamps: true,
@@ -32,10 +29,9 @@ const Comment = sequelize.define('Comment', {
   updatedAt: 'updated_at'
 });
 
-// Associations
 Comment.associate = (models) => {
   Comment.belongsTo(models.User, { as: 'author', foreignKey: 'author_id' });
-  Comment.belongsTo(models.Post, { as: 'post', foreignKey: 'post_id' });
+  // Pas d’association directe avec Event ou BlogPost – géré dynamiquement
 };
 
 module.exports = Comment;
