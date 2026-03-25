@@ -29,8 +29,9 @@ Event.belongsTo(User, { foreignKey: 'seller_id', as: 'seller' });
 User.hasMany(Order, { foreignKey: 'buyer_id', as: 'orders' });
 Order.belongsTo(User, { foreignKey: 'buyer_id', as: 'buyer' });
 
-User.hasMany(Comment, { foreignKey: 'user_id', as: 'comments' });
-Comment.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+// Associations Comment (polymorphes) – mise à jour pour utiliser author_id
+User.hasMany(Comment, { foreignKey: 'author_id', as: 'comments' });
+Comment.belongsTo(User, { foreignKey: 'author_id', as: 'author' });
 
 User.hasMany(AdminLog, { foreignKey: 'admin_id', as: 'logs' });
 AdminLog.belongsTo(User, { foreignKey: 'admin_id', as: 'admin' });
@@ -48,8 +49,9 @@ AccessCategory.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
 Event.hasMany(Order, { foreignKey: 'event_id', as: 'orders' });
 Order.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
 
-Event.hasMany(Comment, { foreignKey: 'event_id', as: 'comments' });
-Comment.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
+// Les relations directes Event ↔ Comment sont supprimées (remplacées par le polymorphisme)
+// Event.hasMany(Comment, { foreignKey: 'event_id', as: 'comments' });
+// Comment.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
 
 Event.hasMany(Coupon, { foreignKey: 'event_id', as: 'coupons' });
 Coupon.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
