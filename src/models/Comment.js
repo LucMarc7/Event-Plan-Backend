@@ -19,7 +19,7 @@ const Comment = sequelize.define('Comment', {
     type: DataTypes.INTEGER,
     allowNull: false
   },
-  author_id: {                     // <-- utilisez author_id, pas user_id
+  author_id: {                     // 👈 uniquement author_id, pas user_id
     type: DataTypes.INTEGER,
     allowNull: false
   }
