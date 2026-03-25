@@ -13,13 +13,13 @@ const Comment = sequelize.define('Comment', {
   target_type: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'Event' // 'Event' ou 'BlogPost'
+    defaultValue: 'Event'
   },
   target_id: {
     type: DataTypes.INTEGER,
     allowNull: false
   },
-  author_id: {
+  author_id: {                     // <-- utilisez author_id, pas user_id
     type: DataTypes.INTEGER,
     allowNull: false
   }
@@ -31,7 +31,6 @@ const Comment = sequelize.define('Comment', {
 
 Comment.associate = (models) => {
   Comment.belongsTo(models.User, { as: 'author', foreignKey: 'author_id' });
-  // Pas d’association directe avec Event ou BlogPost – géré dynamiquement
 };
 
 module.exports = Comment;
