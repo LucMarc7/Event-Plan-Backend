@@ -3,10 +3,11 @@ const router = express.Router();
 const authenticate = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
 const superAdminOnly = require('../middleware/superadmin');
-const { User, Event, Order, Comment, OrderItem, AccessCategory, Setting, AuditLog, sequelize } = require('../models');
+const { User, Event, Order, Comment, OrderItem, AccessCategory, Setting, AuditLog, sequelize, BlogPost, Media } = require('../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcrypt');
 const logAudit = require('../middleware/audit');
+const fs = require('fs');
 
 // Toutes les routes nécessitent authentification + rôle admin
 router.use(authenticate, adminOnly);
@@ -382,25 +383,46 @@ router.get('/events/:id/participants/export', async (req, res) => {
   }
 });
 
-// ==================== GESTION DES COMMENTAIRES ====================
+// ==================== GESTION DES COMMENTAIRES (superadmin uniquement) ====================
 
-router.get('/comments', async (req, res) => {
+// GET /admin/comments - Liste paginée avec enrichissement
+router.get('/comments', superAdminOnly, async (req, res) => {
   try {
-    const comments = await Comment.findAll({
-      include: [
-        { model: User, as: 'user', attributes: ['id', 'email', 'name'] },
-        { model: Event, as: 'event', attributes: ['id', 'title'] }
-      ],
-      order: [['createdAt', 'DESC']]
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Comment.findAndCountAll({
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['created_at', 'DESC']],
+      include: [{ model: User, as: 'author', attributes: ['id', 'name', 'email', 'avatar'] }]
     });
-    res.json(comments);
+
+    // Enrichir avec les détails de la cible (Event ou BlogPost)
+    const enriched = await Promise.all(rows.map(async (comment) => {
+      let target = null;
+      if (comment.target_type === 'Event') {
+        target = await Event.findByPk(comment.target_id, { attributes: ['id', 'title'] });
+      } else if (comment.target_type === 'BlogPost') {
+        target = await BlogPost.findByPk(comment.target_id, { attributes: ['id', 'title'] });
+      }
+      return { ...comment.toJSON(), target };
+    }));
+
+    res.json({
+      total: count,
+      pages: Math.ceil(count / limit),
+      currentPage: parseInt(page),
+      data: enriched
+    });
   } catch (error) {
+    console.error('Erreur GET /admin/comments:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // Masquer/afficher un commentaire – avec audit
-router.put('/comments/:id/hide', logAudit('toggle_comment_hidden', 'comment'), async (req, res) => {
+router.put('/comments/:id/hide', superAdminOnly, logAudit('toggle_comment_hidden', 'comment'), async (req, res) => {
   const { hidden } = req.body;
   if (typeof hidden !== 'boolean') {
     return res.status(400).json({ error: 'La valeur hidden doit être un booléen' });
@@ -415,8 +437,48 @@ router.put('/comments/:id/hide', logAudit('toggle_comment_hidden', 'comment'), a
     comment.hidden = hidden;
     await comment.save();
 
-    res.json(comment);
+    res.json({ hidden: comment.hidden });
   } catch (error) {
+    console.error('Erreur toggle hidden:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Marquer comme vedette / retirer des vedettes – avec audit
+router.put('/comments/:id/featured', superAdminOnly, logAudit('toggle_comment_featured', 'comment'), async (req, res) => {
+  const { featured } = req.body;
+  if (typeof featured !== 'boolean') {
+    return res.status(400).json({ error: 'La valeur featured doit être un booléen' });
+  }
+
+  try {
+    const comment = await Comment.findByPk(req.params.id);
+    if (!comment) {
+      return res.status(404).json({ error: 'Commentaire non trouvé' });
+    }
+
+    comment.featured = featured;
+    await comment.save();
+
+    res.json({ featured: comment.featured });
+  } catch (error) {
+    console.error('Erreur toggle featured:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Supprimer définitivement un commentaire – avec audit
+router.delete('/comments/:id', superAdminOnly, logAudit('delete_comment', 'comment'), async (req, res) => {
+  try {
+    const comment = await Comment.findByPk(req.params.id);
+    if (!comment) {
+      return res.status(404).json({ error: 'Commentaire non trouvé' });
+    }
+
+    await comment.destroy();
+    res.json({ message: 'Commentaire supprimé avec succès' });
+  } catch (error) {
+    console.error('Erreur suppression commentaire:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -660,7 +722,7 @@ router.put('/settings/:key', logAudit('update_setting', 'setting'), async (req, 
   }
 });
 
-/// ==================== GESTION DES MÉDIAS ====================
+// ==================== GESTION DES MÉDIAS ====================
 router.get('/media', async (req, res) => {
   try {
     const { page = 1, limit = 20, type } = req.query;

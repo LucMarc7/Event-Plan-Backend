@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import API from '../services/api';
+import { useAuth } from '../../../admin/src/contexts/AuthContext';
+import API from '../../src/services/api';
 import { Table, Button, Badge, Spinner, Alert } from 'react-bootstrap';
+import { FaTrash, FaStar, FaRegStar } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 function Comments() {
+  const { user } = useAuth();
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -15,9 +18,7 @@ function Comments() {
   const fetchComments = async () => {
     try {
       const response = await API.get('/admin/comments');
-      // La réponse peut être un tableau direct ou un objet avec data
-      const commentsData = response.data?.data || response.data;
-      setComments(Array.isArray(commentsData) ? commentsData : []);
+      setComments(response.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Erreur de chargement');
     } finally {
@@ -35,8 +36,31 @@ function Comments() {
     }
   };
 
+  const toggleFeatured = async (commentId, currentFeatured) => {
+    try {
+      await API.put(`/admin/comments/${commentId}/featured`, { featured: !currentFeatured });
+      toast.success(currentFeatured ? 'Retiré des vedettes' : 'Mis en vedette');
+      fetchComments();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur');
+    }
+  };
+
+  const deleteComment = async (commentId) => {
+    if (!window.confirm('Supprimer définitivement ce commentaire ?')) return;
+    try {
+      await API.delete(`/admin/comments/${commentId}`);
+      toast.success('Commentaire supprimé');
+      fetchComments();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur');
+    }
+  };
+
   if (loading) return <Spinner animation="border" />;
   if (error) return <Alert variant="danger">{error}</Alert>;
+
+  const isSuperAdmin = user?.role === 'superadmin';
 
   return (
     <div>
@@ -49,10 +73,10 @@ function Comments() {
             <tr>
               <th>ID</th>
               <th>Auteur</th>
-              <th>Événement</th>
+              <th>Cible</th>
               <th>Commentaire</th>
-              <th>Note</th>
               <th>Statut</th>
+              <th>Vedette</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -60,23 +84,58 @@ function Comments() {
             {comments.map(comment => (
               <tr key={comment.id}>
                 <td>{comment.id}</td>
-                <td>{comment.user?.email}</td>
-                <td>{comment.event?.title}</td>
+                <td>{comment.author?.email || comment.author?.name || 'Inconnu'}</td>
+                <td>
+                  {comment.target ? (
+                    <>
+                      {comment.target_type === 'Event' ? 'Événement : ' : 'Article : '}
+                      {comment.target.title}
+                    </>
+                  ) : (
+                    'N/A'
+                  )}
+                </td>
                 <td>{comment.content}</td>
-                <td>{comment.rating} / 5</td>
                 <td>
                   <Badge bg={comment.hidden ? 'secondary' : 'success'}>
                     {comment.hidden ? 'Masqué' : 'Visible'}
                   </Badge>
                 </td>
                 <td>
-                  <Button 
-                    size="sm" 
-                    variant={comment.hidden ? 'success' : 'warning'} 
-                    onClick={() => toggleVisibility(comment.id, comment.hidden)}
-                  >
-                    {comment.hidden ? 'Afficher' : 'Masquer'}
-                  </Button>
+                  {isSuperAdmin && (
+                    <Button
+                      variant="link"
+                      className="p-0 me-2"
+                      onClick={() => toggleFeatured(comment.id, comment.featured)}
+                    >
+                      {comment.featured ? (
+                        <FaStar style={{ color: '#f97316' }} />
+                      ) : (
+                        <FaRegStar style={{ color: '#6c757d' }} />
+                      )}
+                    </Button>
+                  )}
+                </td>
+                <td>
+                  {isSuperAdmin && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant={comment.hidden ? 'success' : 'warning'}
+                        className="me-2"
+                        onClick={() => toggleVisibility(comment.id, comment.hidden)}
+                      >
+                        {comment.hidden ? 'Afficher' : 'Masquer'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => deleteComment(comment.id)}
+                      >
+                        <FaTrash />
+                      </Button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
